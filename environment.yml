@@ -1,0 +1,21 @@
+name: crash-severity
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pandas
+  - numpy
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - jupyter
+  - jupyterlab
+  - ipykernel
+  - geopandas
+  - folium
+  - plotly
+  - streamlit
+  - pip
+  - pip:
+    - python-dotenv
