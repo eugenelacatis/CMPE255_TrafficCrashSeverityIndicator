@@ -4,7 +4,7 @@ Jupyter notebooks for exploration and analysis.
 
 ## Naming Convention
 
-Number your notebooks in order:
+Number our notebooks in order:
 - `01_data_inspection.ipynb`
 - `02_eda.ipynb`
 - `03_feature_engineering.ipynb`
@@ -20,4 +20,4 @@ Number your notebooks in order:
 ## Ownership
 
 Add your name to notebooks you're working on:
-- `02_eda_alex.ipynb` (if multiple people do EDA)
+- `02_eda_eugene.ipynb` (if multiple people do EDA)
