@@ -1,0 +1,67 @@
+,count,unique,top,freq,mean,min,25%,50%,75%,max,std
+CrashName,152731,74179,CR-0000074705,14,,,,,,,
+Name_vehicle,152731,152731,ACV-0000000030,1,,,,,,,
+Sex,111618,2,M,69002,,,,,,,
+Age,152731.0,,,,26.365420248672503,0.0,0.0,26.0,44.0,949.0,23.51240995568765
+Speed,50770.0,,,,0.002659050620445145,0.0,0.0,0.0,0.0,80.0,0.3950849575734393
+VehicleDamage,148136,6,Unknown,49720,,,,,,,
+PartyCategory,152731,6,Driver,120740,,,,,,,
+Sobriety,152731,9,Had Not Been Drinking,64608,,,,,,,
+VehicleDirection,152731,6,North,32974,,,,,,,
+MovementPrecedingCollision,152731,22,Proceeding Straight,62913,,,,,,,
+PartyType,152731,20,Car,116138,,,,,,,
+OtherAssociatedFactor,152731,97,Not Applicable,63784,,,,,,,
+VehicleCount,152731.0,,,,1.0,1.0,1.0,1.0,1.0,1.0,0.0
+ViolationCode,152731,86,Unknown,62125,,,,,,,
+ViolationCodeDescription,152731,84,Unknown,62125,,,,,,,
+PossibleTransientFlag,28871,2,False,28802,,,,,,,
+InattentionCodes,28871,11,Unknown,28090,,,,,,,
+SafetyEquipment,28871,22,B - Unknown,10301,,,,,,,
+SafetyEquipmentCategory,28871,4,Occupants,21591,,,,,,,
+FatalInjuries_vehicle,28851.0,,,,0.005684378357769228,0.0,0.0,0.0,0.0,2.0,0.0765521677223593
+SevereInjuries_vehicle,28847.0,,,,0.019412763892259162,0.0,0.0,0.0,0.0,3.0,0.14290991031974687
+ModerateInjuries_vehicle,28847.0,,,,0.07591777307865635,0.0,0.0,0.0,0.0,5.0,0.2805080075859287
+MinorInjuries_vehicle,28838.0,,,,0.2091337818156599,0.0,0.0,0.0,0.0,11.0,0.48893552949400876
+PartySubType,19102,6,Unknown,18978,,,,,,,
+Race,12528,37,H - Hispanic / Latin / Mexican,3689,,,,,,,
+VehicleMakeModelType,17229,408,Unknown / Unknown / Other,1323,,,,,,,
+TrailerAttached,19102,2,False,19063,,,,,,,
+CrashFactId,152731.0,,,,650210.9728804238,591079.0,623078.0,650648.0,675802.0,727092.0,33645.63262863608
+Name_crash,152731,74179,CR-0000074705,14,,,,,,,
+MinorInjuries_crash,152731.0,,,,0.4281318134497908,0.0,0.0,0.0,1.0,11.0,0.7365542774052789
+ModerateInjuries_crash,152731.0,,,,0.15109571730689905,0.0,0.0,0.0,0.0,10.0,0.40899469314072623
+SevereInjuries_crash,152731.0,,,,0.03305157433657869,0.0,0.0,0.0,0.0,5.0,0.19388199723852173
+FatalInjuries_crash,152731.0,,,,0.00890454459147128,0.0,0.0,0.0,0.0,3.0,0.09696128942890339
+TcrNumber,152731,74179,18-328-0712,14,,,,,,,
+CityDamageFlag,152731,2,False,143339,,,,,,,
+ShortFormFlag,152731,2,False,119508,,,,,,,
+Distance,149254.0,,,,81.71611481099335,0.0,0.0,0.0,90.0,8448.0,206.3316830864695
+CrashDateTime,152731,,,,2017-06-05 13:48:10.689775104,2011-01-01 00:09:00,2013-12-23 13:24:00,2017-03-05 16:12:00,2020-10-18 17:26:00,2024-11-24 22:34:00,
+PedestrianAction,152731,11,No Pedestrians Involved,143412,,,,,,,
+RoadwaySurface,152731,5,Dry,133350,,,,,,,
+RoadwayCondition,152731,9,No Unusual Conditions,140898,,,,,,,
+Lighting,152731,6,Daylight,88856,,,,,,,
+PrimaryCollisionFactor,152731,9,Violation Driver 1,106454,,,,,,,
+TrafficControl,152731,5,Controls Functioning,74847,,,,,,,
+Weather,152731,8,Clear,125535,,,,,,,
+CollisionType,152731,9,Rear End,41601,,,,,,,
+ProximityToIntersection,152731,4,Non-Related,61717,,,,,,,
+VehicleInvolvedWith,152731,18,Other Vehicle,88098,,,,,,,
+PedestrianDirectionFrom,152731,11,Not Applicable,143111,,,,,,,
+PedestrianDirectionTo,152731,11,Not Applicable,143108,,,,,,,
+DirectionFromIntersection,152731,6,At,54686,,,,,,,
+Comment,12654,3599,BIKE,1208,,,,,,,
+IntersectionNumber,152731.0,,,,64632.036456253154,1066.0,32460.0,64536.0,94219.5,200556.0,38056.04964726198
+AStreetName,152731,3681,CAPITOL EX,5332,,,,,,,
+BStreetName,152729,3625,STORY RD,4841,,,,,,,
+Latitude,152731.0,,,,37.31779199655163,0.0,37.29512049,37.32338301,37.34727693,37.45366538,0.25603825046929163
+Longitude,152731.0,,,,-121.86449232495903,-122.0322694,-121.8988715,-121.868319,-121.8341384,0.0,0.8264685824548257
+SpeedingFlag,26787,2,False,20724,,,,,,,
+HitAndRunFlag,26787,2,False,19834,,,,,,,
+crash_year,152731.0,,,,2016.9351736058823,2011.0,2013.0,2017.0,2020.0,2024.0,3.9649425827149147
+crash_month,152731.0,,,,6.424949748250191,1.0,3.0,6.0,9.0,12.0,3.424606295892347
+crash_day,152731.0,,,,15.673530586455925,1.0,8.0,16.0,23.0,31.0,8.7560690972693
+crash_hour,152731.0,,,,13.193896458479287,0.0,9.0,14.0,18.0,23.0,6.2914836603815685
+crash_dayofweek,152731.0,,,,3.065978746947247,0.0,1.0,3.0,5.0,6.0,1.9761362464480314
+crash_date,152731,,,,2017-06-05 00:09:44.934296064,2011-01-01 00:00:00,2013-12-23 00:00:00,2017-03-05 00:00:00,2020-10-18 00:00:00,2024-11-24 00:00:00,
+injury_severity,152731.0,,,,0.6662825490568385,0.0,0.0,0.0,1.0,4.0,0.8752238921602996
