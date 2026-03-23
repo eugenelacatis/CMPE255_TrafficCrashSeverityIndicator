@@ -30,8 +30,3 @@ ENV/
 # Project specific
 *.log
 .cache/
-
-# Don't ignore data - we're committing CSVs
-# But ignore any large files you might download temporarily
-*.zip
-*.tar.gz
