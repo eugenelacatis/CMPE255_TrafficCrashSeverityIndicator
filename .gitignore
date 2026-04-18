@@ -12,6 +12,7 @@ build/
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb_checkpoints
+.virtual_documents/
 
 # Environment
 .env
@@ -30,3 +31,9 @@ ENV/
 # Project specific
 *.log
 .cache/
+
+# Large data files — store on Google Drive (see data/README.md)
+data/raw/city/*.csv
+data/processed/*.csv
+# Exception: small summary files can be committed
+!data/processed/eda_summary_statistics.csv
