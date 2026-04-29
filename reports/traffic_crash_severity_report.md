@@ -133,61 +133,38 @@ Latitude and longitude are min-max normalized to [0, 1] to keep scales consisten
 
 ### A. Naive Bayes
 
-We ran Naive Bayes as a deliberate stress test. It has clear theoretical weaknesses on this kind of data, and we wanted to be explicit about why, not just observe that it underperformed, but trace where the assumptions break.
+The Naive Bayes models make the assumption that all features are conditionally independent from each other. However, many features correlate with each other and are not independent (i.e. sobriety coincides with nighttime lighting and rainy weather almost always means the roadway surface will be wet).
+
+Two different Bayes models were used. First the Gaussian model assumes that each feature follows a Gaussian distribution and treats categorical data as numeric. The features used to train this model were both categorical features ('CollisionType', 'PrimaryCollisionFactor', 'Sobriety', 'Lighting', 'Weather', 'RoadwaySurface', 'RoadwayCondition') and numeric features ('hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'is_night'). This model performed with an accuracy of 0.53. The weighted-average F1 score for this model was 0.51.
+
+The next iteration of the model was a Categorical Naive Bayes model. This one did not use the numeric data, such as latitude, longitude, driver age, and vehicle count for collisions that involved multiple vehicles. However, it treated the categorical data correctly, and was more accurate than the previous model with an accuracy of 0.64 and a weighted-average F1 score of 0.61.
 
 | Model | Macro F1 | Severe+Fatal Recall | Notes |
 |-------|----------|---------------------|-------|
-| GaussianNB | 0.278 | 0.051 | Uses all features including lat/lon |
-| CategoricalNB | 0.359 | 0.097 | Categorical features only, excludes lat/lon |
-
-The independence assumption breaks first. Sobriety and lighting are correlated, since drinking crashes spike at night. Weather and road surface are correlated, since wet pavement follows rain. Naive Bayes treats those pairs as independent and introduces systematic bias as a result.
-
-GaussianNB makes things worse by assuming features are normally distributed. Label-encoded categoricals aren't. CollisionType integers (0=broadside, 1=head-on, 2=rear-end) aren't a continuous variable and don't fit a Gaussian. CategoricalNB avoids that problem but creates a new one: it can't accept continuous inputs like latitude and longitude, so it was forced to drop the two most predictive features in the dataset.
-
-Neither variant has a `class_weight` parameter, so both learned to predict "No Injury" and essentially ignored the minority classes.
-
-These aren't just implementation gaps. They reflect a structural mismatch between Naive Bayes assumptions and how crash data actually works.
+| GaussianNB | 0.255 | 0.037 | Categorical + numeric features, lat/lon included |
+| CategoricalNB | 0.360 | 0.120 | Categorical features only, excludes lat/lon |
 
 ### B. Random Forest
 
-Random Forest doesn't have those problems. It handles mixed feature types, doesn't assume independence, and `class_weight='balanced'` makes it account for the imbalance explicitly. We ran 100 trees with normalized coordinates and label-encoded categoricals.
+The Random Forest model handles both categorical and numeric data correctly in addition to handling the class imbalance. This model was also able to make use of latitude and longitude. Although the data is handled correctly with the Random Forest model, the accuracy was the same as the Categorical Bayes model at 0.64 and the weighted-average F1 score was the same at 0.61.
 
-**Configuration:** `n_estimators=100`, `class_weight='balanced'`, stratified 80/20 split.
+We identified which features were given importance in the Random Forest model, with the most important features being latitude and longitude with an importance of 0.2365 and 0.2340 respectively. We can assume that this is due to accidents occurring at repeat locations, such as on freeway ramps. The next most important features were the hour of the crash with a weight of 0.1144 and collision type with a weight of 0.1105.
 
-**Results:**
+| Model | Macro F1 | Severe+Fatal Recall |
+|-------|----------|---------------------|
+| GaussianNB | 0.255 | 0.037 |
+| CategoricalNB | 0.360 | 0.120 |
+| Random Forest | 0.387 | 0.131 |
 
-| Metric | Value |
-|--------|-------|
-| Overall Accuracy | 64% |
-| Macro F1 | 0.326 |
-| Severe + Fatal Recall | 0.058 |
-| No Injury Precision | 72% |
-| Fatal Precision | 81% |
-| Fatal Recall | 21% |
-
-**Feature importances (top 5):**
-
-| Feature | Importance |
-|---------|-----------|
-| Latitude | 0.239 |
-| Longitude | 0.233 |
-| Hour | 0.115 |
-| CollisionType | 0.111 |
-| Day of Week | 0.082 |
-
-Latitude and longitude together account for 47% of feature importance. The model mostly learned where and when bad crashes tend to happen.
-
-See Figure 6 (`nb_vs_rf_confusion_matrices.png`) for confusion matrices across all three models.
-
-> **[PLACEHOLDER, Classification Report]:** Full per-class precision, recall, and F1 scores for all five severity classes are needed here. Extract the complete `sklearn.metrics.classification_report` output from notebook `05_naive_bayes_analysis.ipynb` and insert as a table.
+See Figure 6 in the Appendix for confusion matrices across all three models.
 
 ### C. Discussion
 
-CategoricalNB's macro F1 (0.359) is technically higher than Random Forest's (0.326), but only because it excluded the hardest-to-use features. A model that can't incorporate location doesn't solve the problem we were working on.
+CategoricalNB performs similarly to Random Forest, but CategoricalNB does not accept continuous inputs. This means that location is not taken into account in this model, which can be an issue when there are specific intersections or roads that are more prone to car accidents. Unfortunately, all the models performed fairly poorly, unable to predict injury severity in a majority of cases.
 
-The bigger issue across all models is minority-class recall. 63.6:1 imbalance is hard to overcome with `class_weight` alone. SMOTE or ensemble resampling is the logical next step, along with gradient boosting methods (XGBoost, LightGBM) which tend to handle imbalanced data better than Random Forest out of the box.
+All models were limited by the feature available. Additional features like health of people involved, speed of crashes, and car type (sedan, truck, self-driving) would greatly improve crash severity predictions.
 
-The feature importances also raise a question worth flagging: the model is mostly learning geography, not causation. It knows that crashes near a particular interchange tend to be severe. It doesn't know whether adding a traffic light there would change that. Those are different models, and the second one is harder.
+Model's accuracy in predicting minority classes was further hindered by the lacking correlation in the dataset. Any set of input instances with identical feature values (excluding Longitude and Latitude) have a variety of injury severity values attached to each instance, hindering chances to identify patterns.
 
 ---
 
