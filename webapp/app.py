@@ -71,10 +71,10 @@ if mode == "Points":
     tooltip = {
         "html": (
             "<b>{AStreetName} & {BStreetName}</b><br/>"
-            "📅 {CrashDateTime}<br/>"
-            "💥 {CollisionType}<br/>"
-            "🌤️ {Weather} &nbsp;|&nbsp; {Lighting}<br/>"
-            "⚠️ Severity: {injury_severity}"
+            "Date: {CrashDateTime}<br/>"
+            "Collision: {CollisionType}<br/>"
+            "Weather: {Weather} &nbsp;|&nbsp; {Lighting}<br/>"
+            "Severity: {injury_severity}"
         ),
         "style": {
             "backgroundColor": "#1a1a2e",
@@ -97,19 +97,30 @@ if mode == "Points":
     )
 else:
     tooltip = None
+    heatmap_df = df[["Latitude", "Longitude", "injury_severity"]].copy() if "injury_severity" in df.columns else df[["Latitude", "Longitude"]].copy()
+    if "injury_severity" in heatmap_df.columns:
+        # Map severity 0-3 to weights: minor=0.25, moderate=0.5, severe=0.85, fatal=1.0
+        weight_map = {0: 0.25, 1: 0.5, 2: 0.85, 3: 1.0}
+        heatmap_df["weight"] = heatmap_df["injury_severity"].map(weight_map).fillna(0.25)
+    else:
+        heatmap_df["weight"] = 1.0
     layer = pdk.Layer(
         "HeatmapLayer",
-        data=df[["Latitude", "Longitude"]],
+        data=heatmap_df,
         get_position="[Longitude, Latitude]",
-        aggregation="MEAN",
+        get_weight="weight",
+        aggregation="SUM",
         color_range=[
-            [0, 0, 0, 0],
-            [255, 255, 0, 200],
-            [255, 165, 0, 200],
+            [0, 0, 128, 0],
+            [0, 128, 255, 180],
+            [0, 255, 128, 200],
+            [255, 255, 0, 220],
+            [255, 128, 0, 235],
             [255, 0, 0, 255],
         ],
-        threshold=0.05,
-        radius_pixels=30,
+        threshold=0.02,
+        radius_pixels=35,
+        intensity=1.5,
         pickable=False,
     )
 
@@ -153,7 +164,7 @@ if mode == "Points":
             b = str(crashes_here.iloc[0].get("BStreetName") or "")
             location_title = f"{a} & {b}" if (a and b) else (a or b or "Selected Location")
 
-            st.subheader(f"📍 {location_title}")
+            st.subheader(f"Location:{location_title}")
 
             if len(crashes_here) > 1:
                 date_options = crashes_here["CrashDateTime"].fillna("Unknown").tolist()
@@ -182,43 +193,49 @@ if mode == "Points":
             st.caption(f"Report #{val('TcrNumber')} · {val('data_source')}")
             st.divider()
 
-            st.markdown("**📋 Overview**")
+            st.markdown("**Overview**")
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Date", val("crash_date"))
             c2.metric("Time", hour_str)
             c3.metric("Day", dow_str)
             c4.metric("Severity", sev_label)
 
-            st.markdown("**📍 Location**")
+            st.markdown("**Location**")
             c1, c2 = st.columns(2)
             c1.metric("Intersection", location_title)
             c2.metric("Proximity", loc_detail)
 
-            st.markdown("**🚗 Crash Characteristics**")
-            c1, c2, c3, c4 = st.columns(4)
+            st.markdown("**Crash Characteristics**")
+            c1, c2 = st.columns(2)
             c1.metric("Collision Type", val("CollisionType"))
             c2.metric("Primary Factor", val("PrimaryCollisionFactor"))
-            c3.metric("Involved With", val("VehicleInvolvedWith"))
-            c4.metric("Vehicles", val("VehicleCount"))
 
-            c1, c2, c3 = st.columns(3)
+            c1, c2 = st.columns(2)
+            c1.metric("Involved With", val("VehicleInvolvedWith"))
+            c2.metric("Vehicles", val("VehicleCount"))
+
+            c1, c2 = st.columns(2)
             c1.metric("Speeding", val("SpeedingFlag"))
             c2.metric("Hit & Run", val("HitAndRunFlag"))
-            c3.metric("Pedestrian Action", val("PedestrianAction"))
 
-            st.markdown("**🤕 Injuries**")
+            c1, = st.columns(1)
+            c1.metric("Pedestrian Action", val("PedestrianAction"))
+
+            st.markdown("**Injuries**")
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Fatal", val("FatalInjuries_crash"))
             c2.metric("Severe", val("SevereInjuries_crash"))
             c3.metric("Moderate", val("ModerateInjuries_crash"))
             c4.metric("Minor", val("MinorInjuries_crash"))
 
-            st.markdown("**🌤️ Road & Environment**")
-            c1, c2, c3, c4 = st.columns(4)
+            st.markdown("**Road & Environment**")
+            c1, c2 = st.columns(2)
             c1.metric("Weather", val("Weather"))
             c2.metric("Lighting", val("Lighting"))
-            c3.metric("Road Surface", val("RoadwaySurface"))
-            c4.metric("Traffic Control", val("TrafficControl"))
+
+            c1, c2 = st.columns(2)
+            c1.metric("Road Surface", val("RoadwaySurface"))
+            c2.metric("Traffic Control", val("TrafficControl"))
     else:
         st.info("Hover over a point to see crash info. Click a point to pin details here.")
 else:
