@@ -1,0 +1,322 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage[T1]{fontenc}
+\renewcommand{\ttdefault}{cmtt}
+
+\graphicspath{{figures/}}
+
+\begin{document}
+
+\title{Traffic Crash Severity Prediction in San Jose}
+
+\author{
+  \IEEEauthorblockN{Eugene Lacatis, Rosnita Dey, Peter Conant, Faye Yang}
+  \IEEEauthorblockA{
+    \textit{Master's in Software Engineering} \\
+    \textit{San Jose State University} \\
+    San Jose, United States
+  }
+}
+
+\maketitle
+
+\begin{abstract}
+We merged crash and vehicle records from the San Jose Police Department (SJPD) with highway crash data from the California Highway Patrol's SWITRS system to build a dataset of over 269,000 traffic incidents spanning 2011 through 2024. We predicted crash injury severity on a five-class scale (0 = no injury, 4 = fatal) using features observable at or before the time of the crash: location, weather, time of day, collision type, and driver sobriety. We tested Naive Bayes and Random Forest, finding that Random Forest reached 64\% accuracy with a macro F1 of 0.326. Geographic location and time of day drove most of the model's predictive signal. We also built a Streamlit web app that lets planners and residents explore crash hotspots across San Jose on an interactive map.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Traffic Crash Severity, Data Mining, Random Forest, Naive Bayes, Class Imbalance, San Jose, SWITRS, SJPD, Geospatial Analysis, Feature Engineering, Streamlit
+\end{IEEEkeywords}
+
+% -------------------------------------------------------
+\section{Introduction}
+% -------------------------------------------------------
+
+San Jose has gotten safer in one sense: total crashes dropped 53\% since 2011. In another sense it has gotten more dangerous, with fatal crash rates rising 43\% over the same window. Fewer crashes, but the ones that do happen are more likely to kill someone. That gap is what motivated this project.
+
+Standard crash analysis focuses on volume: where do the most crashes happen? That question misses low-frequency, high-fatality locations where a handful of crashes produce a disproportionate body count. A model that estimates severity, not just likelihood, gives planners a more honest basis for deciding where to spend a safety budget.
+
+We had three questions going in: which features actually predict crash severity in San Jose; whether Naive Bayes or Random Forest was better suited to this specific problem; and whether we could build something non-technical users could actually use to explore the data. We built a merged SJPD and SWITRS dataset, ran both models, and shipped a Streamlit map application. The sections below document what we found and where the approach still falls short.
+
+% -------------------------------------------------------
+\section{Data Collection and Merging}
+% -------------------------------------------------------
+
+\subsection{SJPD City Data}
+
+Our primary source was the City of San Jose's Open Data Portal (\texttt{data.sanjoseca.gov}), which publishes SJPD crash and vehicle records going back to 2011. The data comes in two time slices, 2011 to 2021 and 2022 to present, each with a crash table and a vehicle table, so four CSV files total.
+
+The crash table (74,195 records, 33 fields) has location, weather, road surface, lighting, collision type, traffic control, and a severity value. The vehicle table (152,731 records, 27 fields) has driver age, sex, and sobriety; vehicle type and make; safety equipment; and violation codes. We joined them on the \texttt{CrashName} key, one crash linking to multiple vehicles, with an average of 2.06 vehicles per incident (max 14).
+
+Two things are worth knowing about the data across time periods: the 2022-and-later records add \texttt{SpeedingFlag} and \texttt{HitAndRunFlag}, which don't exist in the older files. Driver race and vehicle make/model fields are also about 99\% null in the 2011 to 2021 slice, so they weren't usable.
+
+\subsection{CHP/SWITRS Highway Data}
+
+SJPD covers city streets well but barely touches the freeways. Less than 0.2\% of SJPD records involve highway locations, which means crashes on I-280, I-880, US-101, and SR-87 are mostly absent from the city data. We pulled Santa Clara County crash records from SWITRS (the CHP's statewide system) for 2016 through 2024 to fill that gap. The integration script (\texttt{scripts/integrate\_highway\_data.py}) handled field mapping, geographic filtering, and severity normalization.
+
+SWITRS doesn't give us the same per-party injury severity granularity as SJPD. Highway severity labels end up binary, either no injury or fatal. We can't reliably assign minor, moderate, or severe to highway records, which limits SWITRS data to geographic analysis. All multiclass modeling uses SJPD-only records. This binary collapse is visible in every comparative figure in the Appendix: the Highway Only panel shows $\sim$99\% No Injury with a thin Fatal sliver and no intermediate classes, while the City Only panel preserves the full five-class distribution.
+
+\subsection{Deduplication and Final Dataset}
+
+Since SJPD and CHP both log crashes near city boundaries, some incidents appear in both datasets. We matched on rounded lat/lon (roughly 111-meter precision) and crash date, which flagged 59 SJPD records as likely duplicates and removed them. The final dataset has 269,213 records with a \texttt{data\_source} column indicating origin. For modeling, we use the 152,731 SJPD-only records that have full five-class severity labels.
+
+% -------------------------------------------------------
+\section{Exploratory Data Analysis}
+% -------------------------------------------------------
+
+\subsection{Target Variable Distribution}
+
+The injury severity target is a five-class ordinal variable. Table~\ref{tab:severity} shows the class distribution. See also Fig.~\ref{fig:target_dist} in the Appendix.
+
+\begin{table}[H]
+  \centering
+  \caption{Injury Severity Class Distribution (SJPD dataset)}
+  \label{tab:severity}
+  \begin{tabular}{@{}clrr@{}}
+    \toprule
+    Class & Label & Count & Share (\%) \\
+    \midrule
+    0 & No Injury & 41,579 & 56.0 \\
+    1 & Minor & 20,011 & 27.0 \\
+    2 & Moderate & 9,658 & 13.0 \\
+    3 & Severe & 2,293 & 3.1 \\
+    4 & Fatal & 654 & 0.88 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The class imbalance is 63.6:1 between No Injury and Fatal. A model that always guesses ``No Injury'' hits 56\% accuracy without learning anything useful, which makes accuracy a misleading metric here. We used macro F1 and minority-class recall instead.
+
+\subsection{Temporal Patterns}
+
+Crashes peak at 5 PM on Fridays, which is expected from rush-hour traffic. The more useful pattern is at the other end of the clock: late-night crashes (midnight to 4 AM) are a small fraction of total volume but a much higher fraction of serious injuries. That makes time-of-day features matter for severity prediction even when they don't predict crash frequency the same way. See Fig.~\ref{fig:temporal} in the Appendix.
+
+\subsection{Feature Associations with Severity}
+
+We used Cramer's V to measure how strongly each categorical feature associated with severity (Fig.~\ref{fig:cramersv} in the Appendix). Table~\ref{tab:cramersv} shows the top results from the City Only panel of Fig.~\ref{fig:cramersv}, since multiclass modeling uses only SJPD-tagged records. Rankings differ on the highway and combined panels because the binary highway severity label compresses signal.
+
+\begin{table}[H]
+  \centering
+  \caption{Cramer's V Associations with Injury Severity}
+  \label{tab:cramersv}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Feature & Cramer's V & Strength \\
+    \midrule
+    CollisionType & 0.31 & Strong \\
+    PrimaryCollisionFactor & 0.28 & Moderate-strong \\
+    Sobriety & 0.24 & Moderate \\
+    Lighting & 0.22 & Moderate \\
+    Weather & 0.19 & Moderate \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+CollisionType is the strongest categorical predictor: head-on and pedestrian crashes are in a different severity category than rear-ends and sideswipes. Sobriety shows a clear gradient from sober to under-influence. None of these associations are strong enough to predict severity on their own, but they're consistent with what you'd expect from domain knowledge.
+
+\subsection{Geographic Clustering}
+
+Crashes cluster on Tully Road, Story Road, Capitol Expressway, and the downtown core, and severe crashes cluster even more tightly around high-speed arterials and freeway ramps. That concentration is why location ends up dominating the Random Forest model. See Fig.~\ref{fig:spatial} in the Appendix.
+
+\subsection{Missing Values}
+
+Three fields have high null rates: \texttt{Comment} (89.4\%, excluded), \texttt{HitAndRunFlag} (82.5\%, 2022+ only), and \texttt{SpeedingFlag} (82.5\%, 2022+ only). Everything else used in modeling was below 2\% null. We filled missing categoricals with the string ``unknown'' and dropped records with no coordinates (fewer than 0.1\% of total).
+
+% -------------------------------------------------------
+\section{Feature Engineering}
+% -------------------------------------------------------
+
+\subsection{Time Features}
+
+We pulled hour, day of week, and month from the timestamp, then added cyclical encodings for hour (\texttt{hour\_sin}/\texttt{hour\_cos}) because standard integer encoding treats midnight and 11 PM as far apart when they're adjacent on the clock. Binary flags for rush hour, weekends, and late night round out the time features.
+
+\subsection{Target Encoding and Train/Test Split}
+
+The five-class severity target (0 to 4) is used as-is. We applied a stratified 80/20 split to preserve class distribution in both sets. Without stratification, the Fatal class (654 records total) could easily end up underrepresented in the test set.
+
+\subsection{Categorical Encoding}
+
+Label encoding for all categoricals (CollisionType, PrimaryCollisionFactor, Weather, Lighting, RoadwaySurface, RoadwayCondition, Sobriety). One-hot encoding would have worked but some fields have high cardinality, and the extra dimensions weren't worth it for tree-based models.
+
+\subsection{Coordinate Normalization}
+
+Latitude and longitude are min-max normalized to [0, 1] to keep scales consistent across features.
+
+% -------------------------------------------------------
+\section{Models and Results}
+% -------------------------------------------------------
+
+\subsection{Naive Bayes}
+
+The Naive Bayes models make the assumption that all features are conditionally independent from each other. However, many features correlate with each other and are not independent (i.e. sobriety coincides with nighttime lighting and rainy weather almost always means the roadway surface will be wet).
+
+Two different Bayes models were used. First the Gaussian model assumes that each feature follows a Gaussian distribution and treats categorical data as numeric. The features used to train this model were both categorical features (`CollisionType', `PrimaryCollisionFactor', `Sobriety', `Lighting', `Weather', `RoadwaySurface', `RoadwayCondition') and numeric features (`hour', `day\_of\_week', `is\_weekend', `is\_rush\_hour', `is\_night'). This model performed with an accuracy of 0.53. The weighted-average F1 score for this model was 0.51.
+
+The next iteration of the model was a Categorical Naive Bayes model. This one did not use the numeric data, such as latitude, longitude, driver age, and vehicle count for collisions that involved multiple vehicles. However, it treated the categorical data correctly, and was more accurate than the previous model with an accuracy of 0.64 and a weighted-average F1 score of 0.61.
+
+\begin{table}[H]
+  \centering
+  \caption{Model Performance Comparison}
+  \label{tab:results}
+  \begin{tabular}{@{}lllp{2cm}@{}}
+    \toprule
+    Model & Macro F1 & Sev+Fatal Recall & Notes \\
+    \midrule
+    GaussianNB & 0.255 & 0.037 & Categorical + numeric, lat/lon included \\
+    CategoricalNB & 0.360 & 0.120 & Categorical only, excludes lat/lon \\
+    Random Forest & 0.387 & 0.131 & All features, balanced \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+See Fig.~\ref{fig:confusion} in the Appendix for the confusion matrices across all three models.
+
+\subsection{Random Forest}
+
+The Random Forest model handles both categorical and numeric data correctly in addition to handling the class imbalance. This model was also able to make use of latitude and longitude. Although the data is handled correctly with the Random Forest model, the accuracy was the same as the Categorical Bayes model at 0.64 and the weighted-average F1 score was the same at 0.61.
+
+We identified which features were given importance in the Random Forest model, with the most important features being latitude and longitude with an importance of 0.2365 and 0.2340 respectively. We can assume that this is due to accidents occurring at repeat locations, such as on freeway ramps. The next most important features were the hour of the crash with a weight of 0.1144 and collision type with a weight of 0.1105.
+
+\subsection{Discussion}
+
+CategoricalNB performs similarly to Random Forest, but CategoricalNB does not accept continuous inputs. This means that location is not taken into account in this model, which can be an issue when there are specific intersections or roads that are more prone to car accidents. Unfortunately, all the models performed fairly poorly, unable to predict injury severity in a majority of cases.
+
+All models were limited by the feature available. Additional features like health of people involved, speed of crashes, and car type (sedan, truck, self-driving) would greatly improve crash severity predictions.
+
+Model's accuracy in predicting minority classes was further hindered by the lacking correlation in the dataset. Any set of input instances with identical feature values (excluding Longitude and Latitude) have a variety of injury severity values attached to each instance, hindering chances to identify patterns.
+
+% -------------------------------------------------------
+\section{Web Application}
+% -------------------------------------------------------
+
+The app is built with Streamlit and pydeck, a Python wrapper for the deck.gl WebGL mapping library. It loads from the processed SJPD dataset and deduplicates on startup to one row per unique (Latitude, Longitude, CrashDateTime), which prevents multi-vehicle records from stacking on top of each other in point mode.
+
+\begin{quote}
+\texttt{conda activate crash-severity} \\
+\texttt{streamlit run webapp/app.py}
+\end{quote}
+
+Point mode shows individual crashes as colored dots sized and colored by severity. Click one to see date, time, severity label, collision type, weather, lighting, road surface, injury counts, and speeding/hit-and-run flags where available. Heatmap mode uses density weighting across the full 269K records to show where crashes concentrate, which is more useful than point mode for spotting corridors at city scale. A sidebar filter cuts the display to selected severity classes.
+
+% -------------------------------------------------------
+\section{Conclusion}
+% -------------------------------------------------------
+
+San Jose crash severity is predictable, but only in a particular sense. The model knows where and when bad crashes happen. It doesn't know why, and it can't tell you whether a specific infrastructure change would shift the odds. That distinction matters for anyone hoping to use this for policy.
+
+Naive Bayes was the wrong tool for this data: too many violated assumptions, no way to handle class imbalance, and for the categorical variant, no path to including location at all. Random Forest handled the problem better and confirmed that geographic clustering is real and strong, but 64\% accuracy with a macro F1 of 0.326 and poor minority-class recall leaves significant room to improve.
+
+The most productive next directions are SMOTE or similar resampling to address the 63.6:1 imbalance, gradient boosting models, and causal models that separate where crashes are severe from what makes them severe, for anyone interested in policy applications rather than visualization.
+
+% -------------------------------------------------------
+\section*{Acknowledgment}
+% -------------------------------------------------------
+
+Thanks to Prof. Jung Suh, CMPE 255 Data Mining, San Jose State University, for guidance throughout the semester. The SJPD crash dataset is maintained by the City of San Jose Open Data Team; the SWITRS data comes from the California Highway Patrol. We used scikit-learn, Streamlit, pydeck, pandas, and matplotlib throughout.
+
+% -------------------------------------------------------
+\appendices
+\section{Figures}
+% -------------------------------------------------------
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{comparative/target_distribution.png}
+  \caption{Injury severity distribution across City Only, Highway Only, and Combined datasets. Top row shows class counts; bottom row shows class share. The Highway Only panel collapses to a near-binary No-Injury / Fatal split, validating the per-party-severity limitation noted in Section II.B.}
+  \label{fig:target_dist}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.92\textheight,keepaspectratio]{comparative/temporal_patterns.png}
+  \caption{Crash counts by year, month, day of week, and hour of day, compared across City Only (blue), Highway Only (orange), and Combined (green) datasets. Highway records are only available from 2016 onward.}
+  \label{fig:temporal}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{comparative/feature_associations.png}
+  \caption{Cramer's V associations between categorical features and injury severity, computed separately for City Only, Highway Only, and Combined datasets. Highway-only associations are uniformly weaker due to the binary label.}
+  \label{fig:cramersv}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{spatial_distribution.png}
+  \caption{Spatial distribution of crashes across San Jose, 2011 to 2024.}
+  \label{fig:spatial}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{nb_vs_rf_confusion_matrices.png}
+  \caption{Confusion matrices for GaussianNB (left), CategoricalNB (center), and Random Forest (right) on the held-out test set.}
+  \label{fig:confusion}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{comparative/severity_by_collisiontype.png}
+  \caption{Injury severity distribution by collision type, three-panel comparison. Vehicle/Pedestrian and Vehicle/Bike collisions carry the highest severity share in city data; the highway panel has no Vehicle/Bike records and Vehicle/Pedestrian collapses to mostly No Injury under the binary label.}
+  \label{fig:sev_collision}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{comparative/severity_by_sobriety.png}
+  \caption{Injury severity distribution by driver sobriety, three-panel comparison. The city panel shows the expected gradient with Under Drug Influence and Had Been Drinking - Not Under Influence carrying the highest severe/fatal share; the highway panel collapses but still preserves a notable Fatal share for Under Drug Influence.}
+  \label{fig:sev_sobriety}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{comparative/severity_temporal.png}
+  \caption{Severity distribution by hour of day (top row) and day of week (bottom row), per dataset. The city panel shows the late-night severity spike noted in Section III.B; the highway panel is nearly flat-green due to the binary label.}
+  \label{fig:sev_temporal}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{comparative/correlation_severity.png}
+  \caption{Pearson correlation between numeric features and injury severity, by dataset. Driver age dominates city-only severity correlation ($r = 0.282$) but is not available for highway records.}
+  \label{fig:corr_sev}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.92\textheight,keepaspectratio]{comparative/environmental_conditions.png}
+  \caption{Distribution of weather, lighting, roadway surface, and roadway condition values across the three datasets. Highway records are missing RoadwayCondition entirely.}
+  \label{fig:env_cond}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{comparative/missing_values.png}
+  \caption{Top 15 features by missing-value rate, per dataset. Highway data is missing every SJPD-only field at 100\% (CrashName, Race, PedestrianAction, etc.), reflecting a fundamentally different schema.}
+  \label{fig:missing}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{comparative/severity_by_lighting.png}
+  \caption{Injury severity distribution by lighting condition, three-panel comparison. The Dark - No Street Light bucket shows a notably elevated severe/fatal share in city data.}
+  \label{fig:sev_lighting}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth]{comparative/severity_by_weather.png}
+  \caption{Injury severity distribution by weather condition, three-panel comparison. Adverse-weather buckets are sparse but the city panel shows higher minor/moderate share in Rain than in Clear.}
+  \label{fig:sev_weather}
+\end{figure*}
+
+\end{document}
