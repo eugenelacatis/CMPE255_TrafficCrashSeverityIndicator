@@ -11,3 +11,21 @@ Could do a full-stack app instead if we're REALLY feeling it.
 ```bash
 streamlit run app.py
 ```
+
+## Steps to Run 
+*Ensure miniconda is installed
+
+Step 1 - create the environment 
+```
+conda env create -f environmental.yml
+```
+
+Step 2 - Activate it 
+```
+conda activate crash-severity
+```
+
+Step 3 - Run the app 
+```
+streamlit run app.py
+```
