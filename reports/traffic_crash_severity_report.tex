@@ -205,7 +205,7 @@ The app is built with Streamlit and pydeck, a Python wrapper for the deck.gl Web
 \texttt{streamlit run webapp/app.py}
 \end{quote}
 
-Point mode shows individual crashes as colored dots sized and colored by severity. Click one to see date, time, severity label, collision type, weather, lighting, road surface, injury counts, and speeding/hit-and-run flags where available. Heatmap mode uses density weighting across the full 269K records to show where crashes concentrate, which is more useful than point mode for spotting corridors at city scale. A sidebar filter cuts the display to selected severity classes.
+Heatmap mode (Fig.~\ref{fig:webapp_heatmap}) uses density weighting across the full 269K records to show where crashes concentrate, which is more useful than point mode for spotting corridors at city scale. A sidebar filter cuts the display to selected severity classes. Point mode (Fig.~\ref{fig:webapp_points}) shows individual crashes as colored dots sized and colored by severity, with hover-to-preview and click-to-pin interactions. Clicking opens a full crash detail panel (Figs.~\ref{fig:webapp_details_1} and~\ref{fig:webapp_details_2}) with date, time, severity, intersection, collision type, primary factor, per-class injury counts, and road/environment conditions.
 
 % -------------------------------------------------------
 \section{Conclusion}
@@ -317,6 +317,34 @@ Thanks to Prof. Jung Suh, CMPE 255 Data Mining, San Jose State University, for g
   \includegraphics[width=\textwidth]{comparative/severity_by_weather.png}
   \caption{Injury severity distribution by weather condition, three-panel comparison. Adverse-weather buckets are sparse but the city panel shows higher minor/moderate share in Rain than in Clear.}
   \label{fig:sev_weather}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{webapp/Webapp_Heatmap.png}
+  \caption{Webapp in heatmap mode, showing crash density across San Jose. Color intensity reflects weighted crash count; the severity-class filter is in the left sidebar.}
+  \label{fig:webapp_heatmap}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{webapp/Webapp_Points.png}
+  \caption{Webapp in point mode, filtered to severity 4 (Fatal). Each red dot is a fatal-crash location across San Jose; hovering previews and clicking pins details.}
+  \label{fig:webapp_points}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{webapp/Webapp_Details_1.png}
+  \caption{Crash detail panel (top half) showing Overview, Location, and Crash Characteristics for a fatal crash at Royal Ave \& San Carlos St on 2018-04-11.}
+  \label{fig:webapp_details_1}
+\end{figure*}
+
+\begin{figure*}[!htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{webapp/Webapp_Details_2.png}
+  \caption{Crash detail panel (bottom half) showing Injuries (1 Fatal, 3 Severe) and Road and Environment conditions for the same crash.}
+  \label{fig:webapp_details_2}
 \end{figure*}
 
 \end{document}

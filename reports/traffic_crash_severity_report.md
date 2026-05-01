@@ -199,9 +199,27 @@ streamlit run webapp/app.py
 
 ### B. Features
 
-Point mode shows individual crashes as colored dots sized and colored by severity. Click one to see date, time, severity label, collision type, primary collision factor, weather, lighting, road surface, injury counts, and speeding/hit-and-run flags where available.
+Heatmap mode (Figure 7) uses density weighting across the full 269K records to show where crashes concentrate, which is more useful than point mode for spotting corridors at city scale. A sidebar filter cuts the display to selected severity classes.
 
-Heatmap mode uses density weighting across the full 269K records to show where crashes concentrate, which is more useful than point mode for spotting corridors at city scale. A sidebar filter cuts the display to selected severity classes.
+![Figure 7: Webapp in heatmap mode, showing crash density across San Jose. Color intensity reflects weighted crash count; the severity-class filter is in the left sidebar.](figures/webapp/Webapp_Heatmap.png)
+
+*Figure 7. Heatmap mode at city scale.*
+
+Point mode (Figure 8) shows individual crashes as colored dots sized and colored by severity. The example below filters to severity 4 (Fatal) and shows 692 unique fatal-crash locations across San Jose. Click any point to pin a detail card below the map.
+
+![Figure 8: Webapp in point mode, filtered to severity 4 (Fatal). Each red dot is a fatal-crash location; hovering previews and clicking pins details.](figures/webapp/Webapp_Points.png)
+
+*Figure 8. Point mode, filtered to fatal crashes.*
+
+Clicking a point opens a detail panel with all available crash metadata: date, time, day, severity, intersection, collision type, primary factor, vehicles involved, speeding/hit-and-run flags, pedestrian action, per-class injury counts, and road and environment conditions (Figures 9 and 10).
+
+![Figure 9: Crash detail panel (top half) showing Overview, Location, and Crash Characteristics for a fatal crash at Royal Ave & San Carlos St on 2018-04-11.](figures/webapp/Webapp_Details_1.png)
+
+*Figure 9. Detail panel — top half (overview, location, characteristics).*
+
+![Figure 10: Crash detail panel (bottom half) showing Injuries (1 Fatal, 3 Severe) and Road and Environment conditions (Cloudy, Dark - Street Light, Dry roadway) for the same crash.](figures/webapp/Webapp_Details_2.png)
+
+*Figure 10. Detail panel — bottom half (injuries and environment).*
 
 ### C. Use Cases
 
