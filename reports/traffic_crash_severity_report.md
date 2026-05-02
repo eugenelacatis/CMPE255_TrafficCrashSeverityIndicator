@@ -47,7 +47,7 @@ Two things are worth knowing about the data across time periods: the 2022-and-la
 
 SJPD covers city streets well but barely touches the freeways. Less than 0.2% of SJPD records involve highway locations, which means crashes on I-280, I-880, US-101, and SR-87 are mostly absent from the city data. We pulled Santa Clara County crash records from SWITRS (the CHP's statewide system) for 2016 through 2024 to fill that gap. The integration script (`scripts/integrate_highway_data.py`) handled field mapping, geographic filtering, and severity normalization.
 
-The catch: SWITRS doesn't give us the same per-party injury severity granularity as SJPD. Highway severity labels end up binary, either no injury or fatal. We can't reliably assign minor, moderate, or severe to highway records, which limits SWITRS data to geographic analysis. All multiclass modeling uses SJPD-only records.
+The catch: SWITRS doesn't give us the same per-party injury severity granularity as SJPD. Highway severity labels end up binary, either no injury or fatal. We can't reliably assign minor, moderate, or severe to highway records, which limits SWITRS data to geographic analysis. All multiclass modeling uses SJPD-only records. This binary collapse is visible in the comparative EDA figures throughout this report and the appendix: every Highway Only panel shows ~99% No Injury with a thin Fatal sliver and no intermediate classes, while the City Only panel preserves the full five-class distribution.
 
 ### C. Deduplication and Final Dataset
 
@@ -71,17 +71,25 @@ The injury severity target is a five-class ordinal variable:
 
 The class imbalance is 63.6:1 between No Injury and Fatal. A model that always guesses "No Injury" hits 56% accuracy without learning anything useful. That makes accuracy a misleading metric here, so we used macro F1 and minority-class recall instead.
 
-See Figure 1 (`target_distribution.png`) for the severity histogram and class share pie chart.
+![Figure 1: Injury severity distribution across City Only, Highway Only, and Combined datasets. Top row shows class counts; bottom row shows class share. The Highway Only panel collapses to a near-binary No-Injury / Fatal split, validating the per-party-severity limitation noted in Section II.B.](figures/comparative/target_distribution.png)
+
+*Figure 1. Severity distribution by data source (City Only / Highway Only / Combined).*
 
 ### B. Temporal Patterns
 
 Crashes peak at 5 PM on Fridays, which is expected from rush-hour traffic. The more useful pattern is at the other end of the clock: late-night crashes (midnight to 4 AM) are a small fraction of total volume but a much higher fraction of serious injuries. That makes time-of-day features matter for severity prediction even when they don't predict crash frequency the same way.
 
-See Figure 2 (`temporal_patterns.png`).
+![Figure 2: Crash counts by year, month, day of week, and hour of day, compared across City Only (blue), Highway Only (orange), and Combined (green) datasets. Highway records are only available for 2016 onward, which is reflected in the leftmost panels.](figures/comparative/temporal_patterns.png)
+
+*Figure 2. Temporal patterns by data source.*
 
 ### C. Feature Associations with Severity
 
-We used Cramer's V to measure how strongly each categorical feature associated with severity (Figure 3, `feature_associations.png`). The top results:
+We used Cramer's V to measure how strongly each categorical feature associated with severity. Figure 3 shows the rankings for each data source separately; the values in the table below are from the City Only panel of Figure 3, since multiclass modeling uses only SJPD-tagged records. Rankings differ on highway and combined data because the binary highway label compresses signal.
+
+![Figure 3: Cramer's V associations between categorical features and injury severity, computed separately for City Only, Highway Only, and Combined datasets. Highway-only associations are uniformly weaker due to the binary label.](figures/comparative/feature_associations.png)
+
+*Figure 3. Cramer's V by data source.*
 
 | Feature | Cramer's V | Strength |
 |---------|-----------|----------|
@@ -91,11 +99,19 @@ We used Cramer's V to measure how strongly each categorical feature associated w
 | Lighting | 0.22 | Moderate |
 | Weather | 0.19 | Moderate |
 
-CollisionType is the strongest categorical predictor: head-on and pedestrian crashes are in a different severity category than rear-ends and sideswipes. Sobriety (Figure 4, `severity_by_sobriety.png`) shows a clear gradient from sober to under-influence. None of these associations are strong enough to predict severity on their own, but they're consistent with what you'd expect from domain knowledge.
+CollisionType is the strongest categorical predictor: head-on and pedestrian crashes are in a different severity category than rear-ends and sideswipes. Sobriety (Figure 4) shows a clear gradient from sober to under-influence in the city panel; the highway panel collapses to mostly No Injury, again per the binary-label limitation. None of these associations are strong enough to predict severity on their own, but they're consistent with what you'd expect from domain knowledge.
+
+![Figure 4: Injury severity distribution by driver sobriety, three-panel comparison. The city panel shows the expected gradient with Under Drug Influence and Had Been Drinking - Not Under Influence carrying the highest severe/fatal share; the highway panel collapses but still preserves a notable Fatal share for Under Drug Influence.](figures/comparative/severity_by_sobriety.png)
+
+*Figure 4. Severity by sobriety, by data source.*
 
 ### D. Geographic Clustering
 
-Crashes cluster on Tully Road, Story Road, Capitol Expressway, and the downtown core, and severe crashes cluster even more tightly around high-speed arterials and freeway ramps. That concentration is why location ends up dominating the Random Forest model. See Figure 5 in the Appendix.
+Crashes cluster on Tully Road, Story Road, Capitol Expressway, and the downtown core, and severe crashes cluster even more tightly around high-speed arterials and freeway ramps. That concentration is why location ends up dominating the Random Forest model.
+
+![Figure 5: Spatial distribution of crashes across San Jose, 2011 to 2024. Combined SJPD and SWITRS coordinates.](figures/spatial_distribution.png)
+
+*Figure 5. Spatial distribution of crashes across San Jose.*
 
 ### E. Missing Values
 
@@ -156,7 +172,9 @@ We identified which features were given importance in the Random Forest model, w
 | CategoricalNB | 0.360 | 0.120 |
 | Random Forest | 0.387 | 0.131 |
 
-See Figure 6 in the Appendix for confusion matrices across all three models.
+![Figure 6: Confusion matrices for GaussianNB (left), CategoricalNB (center), and Random Forest (right) on the held-out SJPD test set.](figures/nb_vs_rf_confusion_matrices.png)
+
+*Figure 6. Confusion matrices across all three models.*
 
 ### C. Discussion
 
@@ -181,9 +199,27 @@ streamlit run webapp/app.py
 
 ### B. Features
 
-Point mode shows individual crashes as colored dots sized and colored by severity. Click one to see date, time, severity label, collision type, primary collision factor, weather, lighting, road surface, injury counts, and speeding/hit-and-run flags where available.
+Heatmap mode (Figure 7) uses density weighting across the full 269K records to show where crashes concentrate, which is more useful than point mode for spotting corridors at city scale. A sidebar filter cuts the display to selected severity classes.
 
-Heatmap mode uses density weighting across the full 269K records to show where crashes concentrate, which is more useful than point mode for spotting corridors at city scale. A sidebar filter cuts the display to selected severity classes.
+![Figure 7: Webapp in heatmap mode, showing crash density across San Jose. Color intensity reflects weighted crash count; the severity-class filter is in the left sidebar.](figures/webapp/Webapp_Heatmap.png)
+
+*Figure 7. Heatmap mode at city scale.*
+
+Point mode (Figure 8) shows individual crashes as colored dots sized and colored by severity. The example below filters to severity 4 (Fatal) and shows 692 unique fatal-crash locations across San Jose. Click any point to pin a detail card below the map.
+
+![Figure 8: Webapp in point mode, filtered to severity 4 (Fatal). Each red dot is a fatal-crash location; hovering previews and clicking pins details.](figures/webapp/Webapp_Points.png)
+
+*Figure 8. Point mode, filtered to fatal crashes.*
+
+Clicking a point opens a detail panel with all available crash metadata: date, time, day, severity, intersection, collision type, primary factor, vehicles involved, speeding/hit-and-run flags, pedestrian action, per-class injury counts, and road and environment conditions (Figures 9 and 10).
+
+![Figure 9: Crash detail panel (top half) showing Overview, Location, and Crash Characteristics for a fatal crash at Royal Ave & San Carlos St on 2018-04-11.](figures/webapp/Webapp_Details_1.png)
+
+*Figure 9. Detail panel — top half (overview, location, characteristics).*
+
+![Figure 10: Crash detail panel (bottom half) showing Injuries (1 Fatal, 3 Severe) and Road and Environment conditions (Cloudy, Dark - Street Light, Dry roadway) for the same crash.](figures/webapp/Webapp_Details_2.png)
+
+*Figure 10. Detail panel — bottom half (injuries and environment).*
 
 ### C. Use Cases
 
@@ -212,3 +248,37 @@ The most productive next directions are SMOTE or similar resampling to address t
 ## Acknowledgments
 
 Thanks to Prof. Jung Suh, CMPE 255 Data Mining, San Jose State University, for guidance throughout the semester. The SJPD crash dataset is maintained by the City of San Jose Open Data Team; the SWITRS data comes from the California Highway Patrol. We used scikit-learn, Streamlit, pydeck, pandas, and matplotlib throughout.
+
+---
+
+## Appendix: Additional Figures
+
+The following supporting figures provide additional comparison across City Only, Highway Only, and Combined datasets. They expand on the EDA in Section III and make explicit several asymmetries between the SJPD and SWITRS data sources.
+
+![Figure A1: Injury severity distribution by collision type, three-panel comparison. Vehicle/Pedestrian and Vehicle/Bike collisions carry the highest severity share in city data; the highway panel has no Vehicle/Bike records and Vehicle/Pedestrian collapses to mostly No Injury under the binary label.](figures/comparative/severity_by_collisiontype.png)
+
+*Figure A1. Severity by collision type, by data source.*
+
+![Figure A2: Severity distribution by hour of day (top row) and day of week (bottom row), per dataset. The city panel shows the late-night severity spike noted in Section III.B; the highway panel is nearly flat-green due to the binary label.](figures/comparative/severity_temporal.png)
+
+*Figure A2. Severity distribution over time, by data source.*
+
+![Figure A3: Pearson correlation between numeric features and injury severity, by dataset. Driver age dominates city-only severity correlation (r = 0.282) but is not available for highway records.](figures/comparative/correlation_severity.png)
+
+*Figure A3. Numeric feature correlation with severity, by data source.*
+
+![Figure A4: Distribution of weather, lighting, roadway surface, and roadway condition values across the three datasets. Highway records are missing RoadwayCondition entirely.](figures/comparative/environmental_conditions.png)
+
+*Figure A4. Environmental conditions, by data source.*
+
+![Figure A5: Top 15 features by missing-value rate, per dataset. Highway data is missing every SJPD-only field at 100% (CrashName, Race, PedestrianAction, etc.), reflecting a fundamentally different schema.](figures/comparative/missing_values.png)
+
+*Figure A5. Missing-value rates, by data source.*
+
+![Figure A6: Injury severity distribution by lighting condition, three-panel comparison. The Dark - No Street Light bucket shows a notably elevated severe/fatal share in city data.](figures/comparative/severity_by_lighting.png)
+
+*Figure A6. Severity by lighting, by data source.*
+
+![Figure A7: Injury severity distribution by weather condition, three-panel comparison. Adverse-weather buckets are sparse but the city panel shows higher minor/moderate share in Rain than in Clear.](figures/comparative/severity_by_weather.png)
+
+*Figure A7. Severity by weather, by data source.*
